@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Test Kubernetes manifests
+      run: |
+        for file in k8s/**/*.yaml; do
+          echo "Validating $file"
+          kubectl apply --dry-run=client -f $file
+        done
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Kubernetes
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      run: |
+        bash scripts/deploy.sh
