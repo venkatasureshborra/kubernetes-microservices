@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-order
+  namespace: webapp
+  labels:
+    app: postgres-order
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-order
+  template:
+    metadata:
+      labels:
+        app: postgres-order
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: orderdb
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: order-db-secret
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: order-db-secret
+              key: password
+        volumeMounts:
+        - name: postgres-order-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready -h 127.0.0.1 -U $POSTGRES_USER
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready -h 127.0.0.1 -U $POSTGRES_USER
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: postgres-order-storage
+        persistentVolumeClaim:
+          claimName: postgres-order-pvc
